@@ -1,0 +1,22 @@
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# draw.io backups
+*.bkp
+.$*.drawio.bkp
+.$*.drawio.dtmp
+
+# Build output
+target/
+build/
+out/
+dist/
+node_modules/
+
+# Secrets
+.env
+*.env
