@@ -19,9 +19,8 @@ hundreds of times a day, and fake or unreachable cash-on-delivery orders cost re
 - **Customer identity**: one customer profile across channels, with suggested merges when the same phone,
   email or name shows up on another handle.
 - **AI assistant**: suggested replies with detected intent and confidence; the agent accepts or edits them.
-- **Sales**: a deal pipeline per conversation, products with sizes and stock, COD orders with order items.
+- **Orders**: products with sizes, prices and stock; cash-on-delivery orders created straight from the chat.
 - **Risk flags**: mark customers with failed or suspicious orders so agents confirm before shipping.
-- **Notes and tasks** on customers and conversations.
 - **Channel simulator**: simulated channels and customers (with delay and failure rate) so the system can be
   demonstrated without real Meta/WhatsApp API access.
 
@@ -34,7 +33,53 @@ Work follows the order the course requires: conceptual model → SAD → DDD →
 | 1. Conceptual model (UML class diagram + description) | [`docs/01-conceptual-model`](docs/01-conceptual-model) | diagram drafted |
 | 2. Software Architecture Document (SAD) | [`docs/02-sad`](docs/02-sad) | not started |
 | 3. Detailed Design Document (DDD) | [`docs/03-ddd`](docs/03-ddd) | not started |
-| 4. Implementation | `src/` | not started |
+| 4. Implementation | [`backend/`](backend), [`frontend/`](frontend) | not started |
+
+## Architecture
+
+**Style: Layered (strict).** Each layer calls only the layer directly below it, and each module
+runs through all three layers. The layers are separate .NET projects, so the compiler enforces the rule
+(`Api → Business → Data`, never upwards).
+
+```
+┌──────────────────────────────────────────┐
+│ Closr.Api       presentation             │  Web API controllers, SignalR hub
+├──────────────────────────────────────────┤
+│ Closr.Business  business logic           │  module services (I*Service), rules
+├──────────────────────────────────────────┤
+│ Closr.Data      data access              │  EF Core repositories, PostgreSQL
+└──────────────────────────────────────────┘
+```
+
+Modules talk to each other only through their service interfaces in the business layer, and the
+dependencies point one way: Inbox → Customers, Inbox → Assistant → Orders → Customers.
+
+**Stack:** ASP.NET Core Web API · React (Vite) · PostgreSQL (EF Core / Npgsql)
+
+**Design patterns:** Façade (each module's `I*Service`), Adapter (one `IChannel` for Instagram /
+WhatsApp / simulator), Factory Method (choosing the channel adapter), Strategy (reply generation).
+
+## Repository layout
+
+```
+closr/
+├── docs/
+│   ├── 01-conceptual-model/
+│   ├── 02-sad/
+│   └── 03-ddd/
+├── backend/
+│   ├── Closr.sln
+│   ├── Closr.Api/          Controllers/{Inbox,Customers,Orders,Assistant}Controller.cs, Hubs/
+│   ├── Closr.Business/     Inbox/  Customers/  Orders/  Assistant/
+│   ├── Closr.Data/         ClosrDbContext.cs, Migrations/, Inbox/  Customers/  Orders/  Assistant/
+│   └── Closr.Tests/
+├── frontend/
+│   └── src/modules/        inbox/  customers/  orders/  assistant/
+└── docker-compose.yml      PostgreSQL for local development
+```
+
+Each module has the same folder name in every layer and in the docs, so a box in the SAD can be
+traced straight to its code.
 
 ## Responsibilities
 
@@ -45,7 +90,9 @@ One module per member; each member commits their own module from their own GitHu
 | Olti Ramadani | @oltiir | _TBD_ | _TBD_ |
 | | | | |
 
-Candidate modules (pick as many as there are members): **Inbox** (channels, conversations, messages),
-**Customers** (profiles, identities, merge suggestions), **AI Assistant** (reply suggestions, intent),
-**Sales** (products, deals, orders), **Risk** (risk flags, order confirmation).
-Authentication, configuration and the architecture skeleton are shared work and do not count as a module.
+Modules (one per member): **Inbox** (channels, conversations, messages) · **Orders** (products,
+stock, COD orders) · **Customers** (profiles across channels, merge suggestions, risk flags) ·
+**AI Assistant** (intent detection, reply suggestions). With 2 members: Inbox + Orders; 3: + Customers;
+4: + AI Assistant.
+Authentication, configuration, the channel simulator and the project skeleton are shared work and do not
+count as a module.
